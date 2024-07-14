@@ -1,76 +1,72 @@
 import requests
 import json
+import gspread 
+from locality import locality_main
+import os
 
-url = "https://www.zomato.com/webroutes/search/home"
-dish_id = input()
+SHEET_ID = "1uEudlQ4iGqzIIWkGHkZqOc3VwnPQU8ohyH6vxdqwxII"
+SHEET_NAME="locality_details"
+URL = "https://www.zomato.com/webroutes/search/home"
 
-payload = json.dumps({
+def process_gsheet():
+  gs = gspread.service_account(filename="/etc/gspread/service_account.json")
+  sh = gs.open_by_key(SHEET_ID)
+  worksheet = sh.worksheet(SHEET_NAME)
+  data_row = worksheet.row_values(2)
+  lat, lon, dish_id = data_row[1], data_row[2], data_row[4]
+
+  data, z_url = locality_main(lat, lon)
+  return z_url, data, dish_id
+
+def modify_url(url, dishv2_id):
+    base_url = url.split('?')[0] + '?' #step-1
+    if "dine-out" in base_url:
+        base_url = base_url.replace("dine-out", "delivery") #step-2
+    modified_url = f"{base_url}dishv2_id={dishv2_id}" #step-3
+    
+    return modified_url
+
+def modify_payload(data, dish_id):
+  payload = {
   "context": "delivery",
-  "filters": "{\"searchMetadata\":{\"previousSearchParams\":\"{\\\"PreviousSearchId\\\":\\\"88423b3e-84fa-45f7-8858-8da88dbd2df7\\\",\\\"PreviousSearchFilter\\\":[\\\"{\\\\\\\"category_context\\\\\\\":\\\\\\\"delivery_home\\\\\\\"}\\\",\\\"\\\",\\\"{\\\\\\\"universal_dish_ids\\\\\\\":[\\\\\\\"this_dish_id\\\\\\\"]}\\\"]}\",\"postbackParams\":\"{\\\"processed_chain_ids\\\":[312995,301718,18363082,307893,18549270,20688499,18896958,20607897,20479636],\\\"shown_res_count\\\":9,\\\"search_id\\\":\\\"88423b3e-84fa-45f7-8858-8da88dbd2df7\\\"}\",\"totalResults\":2193,\"hasMore\":true,\"getInactive\":false},\"dineoutAdsMetaData\":{},\"appliedFilter\":[{\"filterType\":\"category_sheet\",\"filterValue\":\"delivery_home\",\"isHidden\":true,\"isApplied\":true,\"postKey\":\"{\\\"category_context\\\":\\\"delivery_home\\\"}\"},{\"filterType\":\"universal_dish_id\",\"filterValue\":\"this_dish_id\",\"isApplied\":true,\"postKey\":\"{\\\"universal_dish_ids\\\":[\\\"this_dish_id\\\"]}\"}],\"urlParamsForAds\":{}}",
-  "addressId": 0,
-  "entityId": 13142,
-  "entityType": "point_of_interest",
-  "locationType": "poi",
-  "isOrderLocation": 1,
-  "cityId": 1,
-  "latitude": 28.47212217853559,
-  "longitude": 77.07168307901549,
-  "userDefinedLatitude": 28.47212217853559,
-  "userDefinedLongitude": 77.07168307901549,
-  "entityName": "Magicpin, Sector 29, Gurugram",
-  "orderLocationName": "Magicpin, Sector 29, Gurugram",
-  "cityName": "Delhi NCR",
-  "countryId": 1,
-  "countryName": "India",
-  "displayTitle": "Magicpin",
-  "o2Serviceable": True,
-  "placeId": "10977",
-  "cellId": "4110969650425102336",
-  "deliverySubzoneId": 10977,
-  "placeType": "DSZ",
-  "placeName": "Magicpin, Sector 29, Gurugram",
-  "isO2City": True,
-  "fetchFromGoogle": False,
-  "fetchedFromCookie": True,
-  "isO2OnlyCity": False,
-  "address_template": [],
-  "otherRestaurantsUrl": ""
-})
-headers = {
-  'accept': '*/*',
-  'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
-  'content-type': 'application/json',
-  'cookie': 'fre=0; rd=1380000; zl=en; fbtrack=98b44c0486df4daf1a5552ec8d308bcb; _gcl_au=1.1.2117769391.1715081867; _fbp=fb.1.1715081868855.644539322; PHPSESSID=acc4a3f2102f16b4cf7bd6a1bb18cd5e; csrf=cd1ca4471fba0e95d3737f11c7940bcf; ak_bmsc=8F1132066C836CC8908662F78C88D700~000000000000000000000000000000~YAAQ5ewsF7kWfO6PAQAAfuDBBRgTGcXSapa87Kk49Yo2IWE+fMhycCyPkqOUfjaGrM7W849GKT+LjiNRKWHv9uMhdJEi0eJkldmcYJJMuEczgMw9QWH5qXM5i2m66A6TY9Ov/5Xl4bnSfggFusPmaVZmxBpBcDLN1G5CApLok8td8GqrbT/rwTNbMp8FrloNuS2L/bbl5AV6dC+GTauQKUK7W2ZfBsBCkpkjBA4SbUZMxJ5K57euq4bOXQMH5xLfMY3poBCtfRXjF5mUhzemqToIwLcTXAdqH419v0L2p4e0S1fQ+r+jjBfodylFBXM/vh/VQd4PljPrEDLpXf+wOH25Hly+b0NonbN+Yjp1gykFAgF5rEMWEnkPhz7oTolxBtUCLoJRyBmOEX4=; _gid=GA1.2.2013746435.1718083511; uspl=true; _ga_MKWDDHF203=GS1.2.1718083513.4.1.1718083623.18.0.0; fbcity=1; ltv=13142; lty=13142; locus=%7B%22addressId%22%3A0%2C%22lat%22%3A28.47212217853559%2C%22lng%22%3A77.07168307901549%2C%22cityId%22%3A1%2C%22ltv%22%3A13142%2C%22lty%22%3A%22point_of_interest%22%2C%22fetchFromGoogle%22%3Afalse%2C%22dszId%22%3A10977%7D; _ga_2XVFHLPTVP=GS1.1.1718083513.12.1.1718088424.58.0.0; _ga=GA1.1.1496351972.1715081867; _gat_global=1; _gat_city=1; _gat_country=1; AWSALBTG=Ep95K3WmJu29tYakIkOKtnbwmN42QiJQqo85xVEoSvWmhs/hz3P5Ul6dYeaHJNxBIehdrWJcx28qEw2v+aB531xdUJ4dZSWwizqvViRT0RtchFOu4m939cKcbouBERZg/GKFI+U1DhJxLNqpbdMR9y6xgid/2LTygtiCZBIHcrBY; AWSALBTGCORS=Ep95K3WmJu29tYakIkOKtnbwmN42QiJQqo85xVEoSvWmhs/hz3P5Ul6dYeaHJNxBIehdrWJcx28qEw2v+aB531xdUJ4dZSWwizqvViRT0RtchFOu4m939cKcbouBERZg/GKFI+U1DhJxLNqpbdMR9y6xgid/2LTygtiCZBIHcrBY; _ga_X6B66E85ZJ=GS1.2.1718083513.8.1.1718088429.60.0.0; _ga_3NH52KS4KE=GS1.2.1718087185.6.1.1718088430.60.0.0; fbcity=1; fbtrack=c3f1ac845b16a327919c0959f84f7cbd; fre=0; rd=1380000; zl=en; AWSALBTG=jcLM3/T3WZS8wV52fBrAJAmn2OEqdV4NBpBkuWrgyW6qW5PbjNqATX0rqQQw2Cs6hdFwL2IXIwnp63aqP2n7IOM2JIm4/zvbdCzhrUOE1B+vQMOuSmyvssZsbdbpVqdXKkyEl6DLei3/7T3+ES8btu0r6c8pt13VEp27x0KZFowV; AWSALBTGCORS=jcLM3/T3WZS8wV52fBrAJAmn2OEqdV4NBpBkuWrgyW6qW5PbjNqATX0rqQQw2Cs6hdFwL2IXIwnp63aqP2n7IOM2JIm4/zvbdCzhrUOE1B+vQMOuSmyvssZsbdbpVqdXKkyEl6DLei3/7T3+ES8btu0r6c8pt13VEp27x0KZFowV',
-  'origin': 'https://www.zomato.com',
-  'priority': 'u=1, i',
-  'referer': f'https://www.zomato.com/ncr/delivery?point_of_interest=13142&dishv2_id={dish_id}',
-  'sec-ch-ua': '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"Windows"',
-  'sec-fetch-dest': 'empty',
-  'sec-fetch-mode': 'cors',
-  'sec-fetch-site': 'same-origin',
-  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  'x-zomato-csrft': 'cd1ca4471fba0e95d3737f11c7940bcf'
+  "filters": "{\"searchMetadata\":{\"previousSearchParams\":\"{\\\"PreviousSearchId\\\":\\\"30b6284e-d0d6-4ee5-934e-c0bda92f5a4f\\\",\\\"PreviousSearchFilter\\\":[\\\"{\\\\\\\"category_context\\\\\\\":\\\\\\\"delivery_home\\\\\\\"}\\\",\\\"\\\",\\\"{\\\\\\\"universal_dish_ids\\\\\\\":[\\\\\\\"this_dish_id\\\\\\\"]}\\\"]}\",\"postbackParams\":\"{\\\"processed_chain_ids\\\":[],\\\"shown_res_count\\\":9,\\\"search_id\\\":\\\"30b6284e-d0d6-4ee5-934e-c0bda92f5a4f\\\"}\",\"totalResults\":33,\"hasMore\":true,\"getInactive\":false},\"dineoutAdsMetaData\":{},\"appliedFilter\":[{\"filterType\":\"category_sheet\",\"filterValue\":\"delivery_home\",\"isHidden\":true,\"isApplied\":true,\"postKey\":\"{\\\"category_context\\\":\\\"delivery_home\\\"}\"},{\"filterType\":\"universal_dish_id\",\"filterValue\":\"this_dish_id\",\"isApplied\":true,\"postKey\":\"{\\\"universal_dish_ids\\\":[\\\"this_dish_id\\\"]}\"}],\"urlParamsForAds\":{}}"
 }
+  payload.update(data["locationDetails"])
+  payload = json.dumps(payload)
+  payload_dict = json.loads(payload)
+  filters_str = payload_dict["filters"]
+  updated_filters_str = filters_str.replace('this_dish_id', dish_id)
+  
+  payload_dict["filters"] = updated_filters_str
+  m_payload = json.dumps(payload_dict)
+  payload = json.dumps(json.loads(m_payload), indent=4)
+  return payload
 
-def update_dish_id(payload, new_dish_id):
-    payload_dict = json.loads(payload)
-    filters_str = payload_dict["filters"]
-    updated_filters_str = filters_str.replace('this_dish_id', new_dish_id)
-    
-    payload_dict["filters"] = updated_filters_str
-    
-    return json.dumps(payload_dict)
+def header_data(ref_url):
+  headers = {
+    'accept': '*/*',
+    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+    'content-type': 'application/json',
+    'cookie': 'fre=0; rd=1380000; zl=en; fbtrack=513594a2a8bf4e72576d650214168b2b; _gcl_au=1.1.1370679383.1720095163; _fbp=fb.1.1720095164179.887767891355335593; _ga_VEX4KRY429=GS1.2.1720095799.1.1.1720095827.32.0.0; _ga_MKWDDHF203=GS1.2.1720095847.1.1.1720095979.60.0.0; _ga_9M0GN487BK=GS1.2.1720095735.1.1.1720097159.60.0.0; uspl=true; _gid=GA1.2.395819178.1720851974; _ga_ZVRNMB4ZQ5=GS1.2.1720851975.3.1.1720851985.50.0.0; _ga_3NH52KS4KE=GS1.2.1720854275.1.1.1720854286.49.0.0; fbcity=11456; ltv=172913; lty=172913; locus=%7B%22addressId%22%3A0%2C%22lat%22%3A18.4386%2C%22lng%22%3A79.1288%2C%22cityId%22%3A11456%2C%22ltv%22%3A172913%2C%22lty%22%3A%22subzone%22%2C%22fetchFromGoogle%22%3Afalse%2C%22dszId%22%3A38310%7D; PHPSESSID=487ccba788d2a91d6dc72f5bf2f8515e; csrf=c7261272fc8ece1366159e4d1db93ab1; ak_bmsc=371E95F303D94E2CB4111AD594218FDE~000000000000000000000000000000~YAAQlWPUF5wyOZqQAQAA5bJIrRhsusIrmcm3XkRAAqVVxPRYXrcTWS9TN1jSpLYkBPwQ9ML4jz4wodknttbpqR9pKeQgBGk5sLJwFE2BR3KC9PHFUnNtqL4v8QUuCGWJQRUz9ZoexM/XsHkiPq8fMTwrI0BfsWhAveGKbRTWszhRCtf/gcjPVYSPBIOVhNKDRqTyz+295cEAKcCdsd7xyTxadyYVPyAr+3wZ9dN1Uob8o4LHj9dqHmJ1RQIz5HnpDNjseY5PX5a82tcG2LBHSuvS2LW+Ur7waE2FgDf/v2J8zj7FA+y2VGdXcS93wcYakDyB/wFtRjGrUMmqxhf7vHwsu88j0kIBbTkRmBjFYzyhxR6kR0dZrdznVTwqhmM0+BwZn7ST; _gat_global=1; _gat_country=1; _ga_2XVFHLPTVP=GS1.1.1720894142.7.1.1720894154.48.0.0; _ga=GA1.1.1905381440.1720095163; _abck=71FA1397BF05EE82EB0FC5EC01F3D7DC~-1~YAAQlWPUFws1OZqQAQAAWexIrQxCMeVdCGte/1J27JC0blQ1CjdJ1nJ+dhtlyq/gNBwbYReBwvReutHP/t6r4/tbcMDOFg8ybfqrx488k9YJikCfKCSZumVLAdWBLffP93k5s11r/YBg/TFCEUmUAZEOn4e3GNz52oiQL6rDQ02CgdS5BUU5ziS2q7aufpVEUtn1MrxFas+x6F7pPkEMDO5TE8VDR099QiW+pKkhs1GZhk6atcXBKhmMKKVcidFOq49/oMteF3uiePE7fghVwylIm2ELXUvrcI/6Dch9tT0s+KTOyiTOnwhCWSWhjU8uk1jeHsC1L0Z087PfSWjNRt7p2EDqARS/lsLuBmN9cuLUOvQjYUjOx/TubQAOb9aLqpsiCUEYfK1qowLN~-1~-1~-1; AWSALBTG=Q16GmjrPraumI42Wf+P5E8ACWSNqYpL14nDyokPMgUF1RQ7x3bKXBizUOI1RTSgqqQtt5CsitSca/kk81g7IM9RwYBVWukN3oUlChpSwM/PsJtNm4iuIcATCmsbwKqC5/7m60nFdDSIi+gan7IO7MGrKWSX2IDpz7Kxd0tJONynW; AWSALBTGCORS=Q16GmjrPraumI42Wf+P5E8ACWSNqYpL14nDyokPMgUF1RQ7x3bKXBizUOI1RTSgqqQtt5CsitSca/kk81g7IM9RwYBVWukN3oUlChpSwM/PsJtNm4iuIcATCmsbwKqC5/7m60nFdDSIi+gan7IO7MGrKWSX2IDpz7Kxd0tJONynW; _ga_X6B66E85ZJ=GS1.2.1720894142.5.1.1720894156.46.0.0; fre=0; rd=1380000; AWSALBTG=u8pZWS370Ou0J3JzuKgCBTn8H11M0SSTdjAYQJCgf9hEymvyU/vGjQgzbNEIZDfMyEZ1u0Qb3XX/W7+RVBgpN/9pOMdaY3JEz95FDbisF3sQFEBnpS8aS+1AijXaIKmmlc0my2CGIdDr+ShGFuycD5bioMp+K4U7jnbvtcabvWNT; AWSALBTGCORS=u8pZWS370Ou0J3JzuKgCBTn8H11M0SSTdjAYQJCgf9hEymvyU/vGjQgzbNEIZDfMyEZ1u0Qb3XX/W7+RVBgpN/9pOMdaY3JEz95FDbisF3sQFEBnpS8aS+1AijXaIKmmlc0my2CGIdDr+ShGFuycD5bioMp+K4U7jnbvtcabvWNT',
+    'origin': 'https://www.zomato.com',
+    'priority': 'u=1, i',
+    'referer': ref_url,
+    'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"macOS"',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-origin',
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'x-zomato-csrft': 'c7261272fc8ece1366159e4d1db93ab1'
+  }
+  return headers
 
-updated_payload = update_dish_id(payload, dish_id)
+def mains(payload, headers):
+  response = requests.request("POST", URL, headers=headers, data=payload)
+  data = response.json()
 
-payload = json.dumps(json.loads(updated_payload), indent=4)
-
-response = requests.request("POST", url, headers=headers, data=payload)
-data = response.json()
-
-if response.status_code == 200:
+  if response.status_code == 200:
     merchant_names = []
     sections = data.get('sections', {})
     section_search_result = sections.get('SECTION_SEARCH_RESULT', [])
@@ -82,5 +78,13 @@ if response.status_code == 200:
                 merchant_names.append(name)
     for name in merchant_names:
         print(name)
-else:
+  else:
     print(f"Request failed with status code {response.status_code}")
+
+if __name__=="__main__":
+    z_url, data, dish_id = process_gsheet()
+    ref_url = modify_url(z_url, dish_id)
+    payload = modify_payload(data, dish_id)
+    header = header_data(ref_url)
+    mains(payload, header)
+

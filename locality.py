@@ -1,12 +1,8 @@
-import csv
 import logging
 import os
-import sys
 from copy import deepcopy
 from os import environ
-import time
 import json 
-
 import requests
 import ujson
 from urllib.parse import urlencode
@@ -36,7 +32,6 @@ feed = {
     "crawlid": "locality_crawl_final_1",
     "spiderid": "zomato",
 }
-
 
 user_agents = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:70.0) Gecko/20100101 Firefox/70.0",
@@ -110,66 +105,30 @@ def get_csrf():
     return csrf_data
 
 
-def main():
+def locality_main(lat, lon):
     csrf_data = get_csrf()
-    print(csrf_data)
     locality_list = {}
-    # with open('locality_list.csv') as csv_file1:
-    #     csv_reader = csv.DictReader(csv_file1, delimiter=',')
-    #     for i, row in enumerate(csv_reader):
-    #         locality_list[row["id"]]=row
-    # with open('locality_zomato.csv') as csv_file2:
-    # with open('locality_list.csv') as csv_file2:
-    #     csv_reader = csv.DictReader(csv_file2, delimiter=',')
-    #     for i, row in enumerate(csv_reader):
-    #         if (i+1) % 20 == 0:
-    #             time.sleep(300)
-    #             # lat=""
-    #             # lon=""
-    #         # locality = locality_list[row["LOCALITY_ID"]]'
-    #         print(i)
-    #         print(row)
-    lat = 28.47205116 #row["lat"]
-    lon = 77.07171601 #row["lon"]
     url = location_url.format(lat=lat, lon=lon)
     response = requests.request(
         method="GET", url=url, headers=zomato_headers)
     data = ujson.loads(response.text)
-    print("data", data)
     payload = data.get("locationDetails", {})
-    # print(payload)
-    # if i % 25 == 0:
-    # csrf_data = get_csrf()
     if not csrf_data:
         logger.error('Could not get csrf data')
         return
     headers = zomato_headers.copy()
     headers["x-zomato-csrft"] = csrf_data["csrf"]
     headers["content-type"] = "application/json"
-    # cookies = {"PHPSESSID": csrf_data["PHPSESSID"]}
     headers['Cookie'] = f'PHPSESSID={csrf_data["PHPSESSID"]};'
     response = requests.post(
         url=locality_page_url, headers=headers, json=payload)
-    data = ujson.loads(response.text)
-    json_string = json.dumps(data)
+    s_data = ujson.loads(response.text)
+    json_string = json.dumps(s_data)
     with open("f.json", "w") as f:
         f.write(json_string)
-    url = data.get("pageInfo", {}).get("pageUrl", "")
+    url = s_data.get("pageInfo", {}).get("pageUrl", "")
     if not url:
         logger.error("locality url not found")
-        # continue
     feed["url"] = home_url+url
-    print("feed", feed)
-    print(feed["url"])
-    print("crawler: ", crawler_rest_endpoint)
-    # res, err = req(crawler_rest_endpoint, method="POST",
-    #                 json=feed, get_json=True)
-    # print(res)
-    # if err:
-    #     logger.error(f"error: {err}")
-    # else:
-    #     logger.info(f"result: {res}")
+    return data, feed['url']
 
-
-if __name__ == "__main__":
-    sys.exit(main())
