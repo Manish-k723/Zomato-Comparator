@@ -2,19 +2,17 @@ import requests
 import json
 import gspread 
 from locality import locality_main
+from write_mid_in_sheet import bq_read
 import os
 
 SHEET_ID = "1uEudlQ4iGqzIIWkGHkZqOc3VwnPQU8ohyH6vxdqwxII"
 SHEET_NAME="locality_details"
 URL = "https://www.zomato.com/webroutes/search/home"
 
-def process_gsheet():
-  gs = gspread.service_account(filename="/etc/gspread/service_account.json")
-  sh = gs.open_by_key(SHEET_ID)
-  worksheet = sh.worksheet(SHEET_NAME)
-  data_row = worksheet.row_values(2)
-  lat, lon, dish_id = data_row[1], data_row[2], data_row[4]
-
+def process_gsheet(worksheet, i):
+  data_row = worksheet.row_values(i+1)
+  lat, lon, dish_id = data_row[3], data_row[4], data_row[6]
+  print(lat, lon)
   data, z_url = locality_main(lat, lon)
   return z_url, data, dish_id
 
@@ -62,29 +60,47 @@ def header_data(ref_url):
   }
   return headers
 
+def write_in_sheet(worksheet, ids, merchant_names, index):
+   response_col1 = worksheet.find('top_merchants_zomato_id').col
+   response_col2 = worksheet.find('merchant_names').col
+   ids_str = str(ids)
+   merchant_names_str = str(merchant_names)
+   worksheet.update_cell(index, response_col1, ids_str)
+   worksheet.update_cell(index, response_col2, merchant_names_str)
+   
 def mains(payload, headers):
   response = requests.request("POST", URL, headers=headers, data=payload)
   data = response.json()
-
+  merchants, ids = [], []
   if response.status_code == 200:
-    merchant_names = []
     sections = data.get('sections', {})
     section_search_result = sections.get('SECTION_SEARCH_RESULT', [])
     for item in section_search_result:
         if item.get('type') == 'restaurant':
             info = item.get('info', {})
             name = info.get('name')
+            id = info.get('resId')
+            if id:
+                ids.append(id)
             if name:
-                merchant_names.append(name)
-    for name in merchant_names:
-        print(name)
+              merchants.append(name)
   else:
     print(f"Request failed with status code {response.status_code}")
+    merchants[response.status_code] = "Security Error in crawling"
+  return ids, merchants
 
 if __name__=="__main__":
-    z_url, data, dish_id = process_gsheet()
-    ref_url = modify_url(z_url, dish_id)
-    payload = modify_payload(data, dish_id)
-    header = header_data(ref_url)
-    mains(payload, header)
+    gs = gspread.service_account(filename="/etc/gspread/service_account.json")
+    sh = gs.open_by_key(SHEET_ID)
+    worksheet = sh.worksheet(SHEET_NAME)
+    row_count = len(worksheet.get_all_values())
+    for i in range(1, row_count):
+      z_url, data, dish_id = process_gsheet(worksheet, i)
+      ref_url = modify_url(z_url, dish_id)
+      payload = modify_payload(data, dish_id)
+      header = header_data(ref_url)
+      ids, merchants = mains(payload, header)
+      write_in_sheet(worksheet, ids,  merchants, i+1)
+    bq_read()
+
 
