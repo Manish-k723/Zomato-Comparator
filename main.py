@@ -3,7 +3,7 @@ import json
 import gspread 
 from locality import locality_main
 from write_mid_in_sheet import bq_read
-import os
+from fetch_from_solr import get_lat_lon
 
 SHEET_ID = "1uEudlQ4iGqzIIWkGHkZqOc3VwnPQU8ohyH6vxdqwxII"
 SHEET_NAME="locality_details"
@@ -11,7 +11,8 @@ URL = "https://www.zomato.com/webroutes/search/home"
 
 def process_gsheet(worksheet, i):
   data_row = worksheet.row_values(i+1)
-  lat, lon, dish_id = data_row[3], data_row[4], data_row[6]
+  locality, city, dish_id = data_row[1], data_row[2], data_row[6]
+  lat, lon = get_lat_lon(locality, city)
   print(lat, lon)
   data, z_url = locality_main(lat, lon)
   return z_url, data, dish_id
@@ -42,31 +43,34 @@ def modify_payload(data, dish_id):
 
 def header_data(ref_url):
   headers = {
-    'accept': '*/*',
-    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
-    'content-type': 'application/json',
-    'cookie': 'fre=0; rd=1380000; zl=en; fbtrack=513594a2a8bf4e72576d650214168b2b; _gcl_au=1.1.1370679383.1720095163; _fbp=fb.1.1720095164179.887767891355335593; _ga_VEX4KRY429=GS1.2.1720095799.1.1.1720095827.32.0.0; _ga_MKWDDHF203=GS1.2.1720095847.1.1.1720095979.60.0.0; _ga_9M0GN487BK=GS1.2.1720095735.1.1.1720097159.60.0.0; uspl=true; _gid=GA1.2.395819178.1720851974; _ga_ZVRNMB4ZQ5=GS1.2.1720851975.3.1.1720851985.50.0.0; _ga_3NH52KS4KE=GS1.2.1720854275.1.1.1720854286.49.0.0; fbcity=11456; ltv=172913; lty=172913; locus=%7B%22addressId%22%3A0%2C%22lat%22%3A18.4386%2C%22lng%22%3A79.1288%2C%22cityId%22%3A11456%2C%22ltv%22%3A172913%2C%22lty%22%3A%22subzone%22%2C%22fetchFromGoogle%22%3Afalse%2C%22dszId%22%3A38310%7D; PHPSESSID=487ccba788d2a91d6dc72f5bf2f8515e; csrf=c7261272fc8ece1366159e4d1db93ab1; ak_bmsc=371E95F303D94E2CB4111AD594218FDE~000000000000000000000000000000~YAAQlWPUF5wyOZqQAQAA5bJIrRhsusIrmcm3XkRAAqVVxPRYXrcTWS9TN1jSpLYkBPwQ9ML4jz4wodknttbpqR9pKeQgBGk5sLJwFE2BR3KC9PHFUnNtqL4v8QUuCGWJQRUz9ZoexM/XsHkiPq8fMTwrI0BfsWhAveGKbRTWszhRCtf/gcjPVYSPBIOVhNKDRqTyz+295cEAKcCdsd7xyTxadyYVPyAr+3wZ9dN1Uob8o4LHj9dqHmJ1RQIz5HnpDNjseY5PX5a82tcG2LBHSuvS2LW+Ur7waE2FgDf/v2J8zj7FA+y2VGdXcS93wcYakDyB/wFtRjGrUMmqxhf7vHwsu88j0kIBbTkRmBjFYzyhxR6kR0dZrdznVTwqhmM0+BwZn7ST; _gat_global=1; _gat_country=1; _ga_2XVFHLPTVP=GS1.1.1720894142.7.1.1720894154.48.0.0; _ga=GA1.1.1905381440.1720095163; _abck=71FA1397BF05EE82EB0FC5EC01F3D7DC~-1~YAAQlWPUFws1OZqQAQAAWexIrQxCMeVdCGte/1J27JC0blQ1CjdJ1nJ+dhtlyq/gNBwbYReBwvReutHP/t6r4/tbcMDOFg8ybfqrx488k9YJikCfKCSZumVLAdWBLffP93k5s11r/YBg/TFCEUmUAZEOn4e3GNz52oiQL6rDQ02CgdS5BUU5ziS2q7aufpVEUtn1MrxFas+x6F7pPkEMDO5TE8VDR099QiW+pKkhs1GZhk6atcXBKhmMKKVcidFOq49/oMteF3uiePE7fghVwylIm2ELXUvrcI/6Dch9tT0s+KTOyiTOnwhCWSWhjU8uk1jeHsC1L0Z087PfSWjNRt7p2EDqARS/lsLuBmN9cuLUOvQjYUjOx/TubQAOb9aLqpsiCUEYfK1qowLN~-1~-1~-1; AWSALBTG=Q16GmjrPraumI42Wf+P5E8ACWSNqYpL14nDyokPMgUF1RQ7x3bKXBizUOI1RTSgqqQtt5CsitSca/kk81g7IM9RwYBVWukN3oUlChpSwM/PsJtNm4iuIcATCmsbwKqC5/7m60nFdDSIi+gan7IO7MGrKWSX2IDpz7Kxd0tJONynW; AWSALBTGCORS=Q16GmjrPraumI42Wf+P5E8ACWSNqYpL14nDyokPMgUF1RQ7x3bKXBizUOI1RTSgqqQtt5CsitSca/kk81g7IM9RwYBVWukN3oUlChpSwM/PsJtNm4iuIcATCmsbwKqC5/7m60nFdDSIi+gan7IO7MGrKWSX2IDpz7Kxd0tJONynW; _ga_X6B66E85ZJ=GS1.2.1720894142.5.1.1720894156.46.0.0; fre=0; rd=1380000; AWSALBTG=u8pZWS370Ou0J3JzuKgCBTn8H11M0SSTdjAYQJCgf9hEymvyU/vGjQgzbNEIZDfMyEZ1u0Qb3XX/W7+RVBgpN/9pOMdaY3JEz95FDbisF3sQFEBnpS8aS+1AijXaIKmmlc0my2CGIdDr+ShGFuycD5bioMp+K4U7jnbvtcabvWNT; AWSALBTGCORS=u8pZWS370Ou0J3JzuKgCBTn8H11M0SSTdjAYQJCgf9hEymvyU/vGjQgzbNEIZDfMyEZ1u0Qb3XX/W7+RVBgpN/9pOMdaY3JEz95FDbisF3sQFEBnpS8aS+1AijXaIKmmlc0my2CGIdDr+ShGFuycD5bioMp+K4U7jnbvtcabvWNT',
-    'origin': 'https://www.zomato.com',
-    'priority': 'u=1, i',
-    'referer': ref_url,
-    'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"macOS"',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'x-zomato-csrft': 'c7261272fc8ece1366159e4d1db93ab1'
-  }
+  'accept': '*/*',
+  'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+  'content-type': 'application/json',
+  'cookie': 'fre=0; rd=1380000; zl=en; fbtrack=513594a2a8bf4e72576d650214168b2b; _gcl_au=1.1.1370679383.1720095163; _fbp=fb.1.1720095164179.887767891355335593; _ga_VEX4KRY429=GS1.2.1720095799.1.1.1720095827.32.0.0; _ga_MKWDDHF203=GS1.2.1720095847.1.1.1720095979.60.0.0; _ga_9M0GN487BK=GS1.2.1720095735.1.1.1720097159.60.0.0; uspl=true; _gid=GA1.2.712235039.1721027407; _ga_3NH52KS4KE=GS1.2.1721027409.3.1.1721028516.47.0.0; expab=1; dpr=2; _ga_ZVRNMB4ZQ5=GS1.2.1721033604.5.1.1721035868.53.0.0; fbcity=6; ltv=6; lty=6; locus=%7B%22addressId%22%3A0%2C%22lat%22%3A17.366%2C%22lng%22%3A78.476%2C%22cityId%22%3A6%2C%22ltv%22%3A6%2C%22lty%22%3A%22city%22%2C%22fetchFromGoogle%22%3Afalse%2C%22dszId%22%3A1514%2C%22fen%22%3A%22Hyderabad%22%7D; PHPSESSID=ed73cb291a9c277f204026ff4b9fff64; csrf=fefade6b3f239903b0b8aaa206e53733; ak_bmsc=D30A3357B24964A0C0D2D1D4FC96629C~000000000000000000000000000000~YAAQnGPUF+diN7aQAQAAHeQDvRjKyyQJu4yuPH5YQfv+TaNMCFvmFbO0teKBosj/xgUBr7yJE2L+/3+UcTATWXM1OsyqXfKPzbxWnynyYqMO91IOYoPiSPoz3YrrucuQiOQOobPWvJ1wvXdsoxmaXXGet55C20yad2/Ocyi5IkWmZi2u5AIpKOFyfx79bbSk9ug7otZmmDYMHiIu7wotaWVYWR8lGqJ7ImXkRsImRboydJ/yR7zRyvYGCru6SoKWSMXxjrEz23m/b3Ur9OlWPPRhhKhXMoFvnLmLrIRt8BPdfkrMAgkZgnXWaq4vOwtnSErgtgWiNzIv/aFPmUB9ftCEcF40ZZS7nPazQk+T1Z4Un1wyHhP6/uU54kevbLkbTd9DeZRn; _gat_global=1; _gat_city=1; _gat_country=1; _ga_2XVFHLPTVP=GS1.1.1721158067.15.1.1721158078.49.0.0; _ga=GA1.1.1905381440.1720095163; _abck=71FA1397BF05EE82EB0FC5EC01F3D7DC~-1~YAAQnGPUFwFlN7aQAQAAZhsEvQx92ZHR+F+Cq1bFGvwMbo+xw6zBHxVSZKSUITiuc3imY/Oq4QUu3/zkqNtT4YkYZEPeow9CWfttxSMl483IDrcfHGog1NYt9v6sy4t+wn8OPKdjppS9iRAX274mMODJkoDaB8V49UhxTo+/+I6MzbmeWcfl1cd13I468biFk0EV1914uROhIyt7SbCed9kewSuRFZIUdQeooPIKnq93T3yaYHGA/BOW7ILQ7jV0weISvi62PBzGCNLd3ScYOFdcnWQy48j2zKqPbNkxE6h/ol808jmgozfttUDiIPXzp6tMOKERgTj6FO8d8V2o4xfNso70IFmpfZhCM8P9G9NQtKEoRr4wMPPUHJjIOHfpHiWMFGkDOfHQQ+kI~-1~-1~-1; _ga_X6B66E85ZJ=GS1.2.1721158067.10.1.1721158079.48.0.0; AWSALBTG=2Hb8OoezaXlxlalcgaRiOaKt3gO9DV4zClTZwK8lwAFmE8C0wut/IuE4/lcE031NxnQOhYAyqWRKRowQi33NLco/lWOy9d/lHL8lyJvtuZ0JSPh18HpHLyOeI+flcdD8CnGurV5WVeSuOrg3eyVbO9E0MUnDkvdz+aAwYmMLblPe; AWSALBTGCORS=2Hb8OoezaXlxlalcgaRiOaKt3gO9DV4zClTZwK8lwAFmE8C0wut/IuE4/lcE031NxnQOhYAyqWRKRowQi33NLco/lWOy9d/lHL8lyJvtuZ0JSPh18HpHLyOeI+flcdD8CnGurV5WVeSuOrg3eyVbO9E0MUnDkvdz+aAwYmMLblPe; _ga_6HC28B0H9G=GS1.2.1721158067.3.1.1721158079.48.0.0; csrf=7a6f1f7cbc5180f421abf0ae85966298; fre=0; rd=1380000; AWSALBTG=ygGY2cWhq6hUB/VaH1PH0gwIiNxZLkEK1MXUk4eIHYGtPT3an0ZkRcRzOKll795hV3tOgY09uX5RNh9+r9zlxOOlK9/eVBBOJzkXMvVsDG/LQsboK9SYnlRX3e1lgPRRyvLf1T+2iFwbNtFUjDr9KlSTK9u0fCtWstl0tsyeEINX; AWSALBTGCORS=ygGY2cWhq6hUB/VaH1PH0gwIiNxZLkEK1MXUk4eIHYGtPT3an0ZkRcRzOKll795hV3tOgY09uX5RNh9+r9zlxOOlK9/eVBBOJzkXMvVsDG/LQsboK9SYnlRX3e1lgPRRyvLf1T+2iFwbNtFUjDr9KlSTK9u0fCtWstl0tsyeEINX',
+  'origin': 'https://www.zomato.com',
+  'priority': 'u=1, i',
+  'referer': ref_url,
+  'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"macOS"',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'x-zomato-csrft': 'fefade6b3f239903b0b8aaa206e53733'
+}
   return headers
 
-def write_in_sheet(worksheet, ids, merchant_names, index):
+def write_in_sheet(worksheet, ids, merchant_names, m_info, index):
    response_col1 = worksheet.find('top_merchants_zomato_id').col
    response_col2 = worksheet.find('merchant_names').col
+   response_col3 = worksheet.find('merchant_info').col
    ids_str = str(ids)
    merchant_names_str = str(merchant_names)
+   m_info_str = str(m_info)
    worksheet.update_cell(index, response_col1, ids_str)
    worksheet.update_cell(index, response_col2, merchant_names_str)
+   worksheet.update_cell(index, response_col3, m_info_str)
    
 def mains(payload, headers):
   response = requests.request("POST", URL, headers=headers, data=payload)
@@ -95,12 +99,16 @@ if __name__=="__main__":
     worksheet = sh.worksheet(SHEET_NAME)
     row_count = len(worksheet.get_all_values())
     for i in range(1, row_count):
-      z_url, data, dish_id = process_gsheet(worksheet, i)
-      ref_url = modify_url(z_url, dish_id)
-      payload = modify_payload(data, dish_id)
-      header = header_data(ref_url)
-      ids, merchants = mains(payload, header)
-      write_in_sheet(worksheet, ids,  merchants, i+1)
-    bq_read()
+      try:
+        z_url, data, dish_id = process_gsheet(worksheet, i)
+        ref_url = modify_url(z_url, dish_id)
+        payload = modify_payload(data, dish_id)
+        header = header_data(ref_url)
+        ids, merchants = mains(payload, header)
+        m_info = bq_read(ids)
+        write_in_sheet(worksheet, ids,  merchants, m_info, i+1)
+      except:
+         continue
+      
 
 

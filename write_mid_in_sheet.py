@@ -29,18 +29,7 @@ def write_in_sheet(worksheet, m_ids, index):
     m_ids_str = str(m_ids)
     worksheet.update_cell(index, response_col, m_ids_str)
 
-def bq_read():
-    gs = gspread.service_account(filename="/etc/gspread/service_account.json")
-    sh = gs.open_by_key(SHEET_ID)
-    worksheet = sh.worksheet(SHEET_NAME)
-    z_id_column_index = worksheet.find('top_merchants_zomato_id').col
-    id_cells = worksheet.col_values(z_id_column_index)[1:]
-    index = 2
-    for id_cell in id_cells:
-        m_ids = []
-        if id_cell.strip():  # Check if the cell is not empty
-            ids = extract_ids_from_string(id_cell)
-            ids = tuple([str(id) for id in ids])
-            m_ids = run_query(ids)
-        write_in_sheet(worksheet, m_ids, index)
-        index+=1
+def bq_read(ids):
+    ids = tuple([str(id) for id in ids])
+    m_info = run_query(ids)
+    return m_info
